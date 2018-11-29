@@ -10,7 +10,7 @@ volumes:
 
 services:
   mtproxy:
-    image: mtproxy
+    build: .
     ports:
       - target: 4430
         protocol: tcp
