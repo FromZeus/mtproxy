@@ -1,0 +1,108 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: pd-ssd
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: pd-standard
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mtproxy-data
+spec:
+  storageClassName: pd-ssd
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mtproxy-lb
+  labels:
+    app: mtproxy
+spec:
+  selector:
+    app: mtproxy
+  ports:
+    - name: mt-port
+      port: 4430
+      targetPort: 4430
+  type: LoadBalancer
+  sessionAffinity: None
+  loadBalancerIP: 35.228.202.19
+  externalTrafficPolicy: Cluster
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: mtproxy-token
+type: Opaque
+stringData:
+  token: "C074AC5465724704C94420F940DA2727"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mtproxy
+  labels:
+    app: mtproxy
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: mtproxy
+  template:
+    metadata:
+      name: mtproxy
+      labels:
+        app: mtproxy
+    spec:
+      # securityContext:
+      #   fsGroup: 1000
+      initContainers:
+
+      containers:
+        - name: mtproxy
+          image: gcr.io/minecraft-270201/mtproxy:0.1.0
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 1200m
+              memory: 4.5Gi
+          # securityContext:
+          #   runAsUser: 1000
+          env:
+            - name: USER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mtproxy-token
+                  key: token
+          ports:
+            - name: mt-port
+              containerPort: 4430
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              subPath:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mtproxy-data

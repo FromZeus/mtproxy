@@ -19,7 +19,7 @@ services:
     volumes:
       - data:/data
     environment:
-      - USER_SECRET=f5f4bbf7b2ff7f635c357a72f54b9fa1
+      - USER_SECRET=C074AC5465724704C94420F940DA2727
     deploy:
       replicas: 1
       restart_policy:
